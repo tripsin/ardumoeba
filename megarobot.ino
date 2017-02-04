@@ -37,7 +37,9 @@ IRrecv irrecv(TSOP);
 #define CENTER 105
 
 Servo hServ;
-
+///////////////////////////////////////////////////////
+// Old robot move function
+///////////////////////////////////////////////////////
 int speedWeel[11] = {255, 111, 127, 143, 159, 175, 191, 201, 223, 239, 255};
 
 void fwd(int l,int r)
@@ -46,36 +48,40 @@ void fwd(int l,int r)
   if (l > 0) {
     digitalWrite(IN1, HIGH);
     digitalWrite(IN2, LOW);
-  } else if (l < 0) {
-    digitalWrite(IN1, LOW);
-    digitalWrite(IN2, HIGH);
-  } else if (l == 0) {
-    digitalWrite(IN1, HIGH);
-    digitalWrite(IN2, HIGH);
-  }
-  analogWrite(E1, speedWeel[abs(l)]);
-  
+    } else if (l < 0) {
+      digitalWrite(IN1, LOW);
+      digitalWrite(IN2, HIGH);
+      } else if (l == 0) {
+        digitalWrite(IN1, HIGH);
+        digitalWrite(IN2, HIGH);
+      }
+      analogWrite(E1, speedWeel[abs(l)]);
+
   //right motor
   if (r > 0) {
     digitalWrite(IN3, LOW);
     digitalWrite(IN4, HIGH);
-  } else if (r < 0) {
-    digitalWrite(IN3, HIGH);
-    digitalWrite(IN4, LOW);
-  } else if (r == 0) {
-    digitalWrite(IN3, HIGH);
-    digitalWrite(IN4, HIGH);
-  }
-  analogWrite(E2, speedWeel[abs(r)]);
+    } else if (r < 0) {
+      digitalWrite(IN3, HIGH);
+      digitalWrite(IN4, LOW);
+      } else if (r == 0) {
+        digitalWrite(IN3, HIGH);
+        digitalWrite(IN4, HIGH);
+      }
+      analogWrite(E2, speedWeel[abs(r)]);
 
   //Крутит башкой
   if (l < r) {
     hServ.write(CENTER + 30);
-  } else if (l > r) {
-    hServ.write(CENTER - 30);
-  } else hServ.write(CENTER);
-}
+    } else if (l > r) {
+      hServ.write(CENTER - 30);
+      } else hServ.write(CENTER);
+    }
+/////////////////////////////////////////////////////////
 
+///////////////////////////////////////////////////////
+// Stop motors
+///////////////////////////////////////////////////////
 void stp()
 {
   digitalWrite(IN1, LOW);
@@ -85,15 +91,22 @@ void stp()
   analogWrite(E1, 0);
   analogWrite(E2, 0);
 }
+/////////////////////////////////////////////////////
 
-
-void beep(int ton)
+//////////////////////////////////////////////////////
+// BEEP function TODO: not working
+//////////////////////////////////////////////////////
+void beep(int ton) //TODO not work
 {
-    analogWrite(BUZZER, ton);
-    delay(50);
-    analogWrite(BUZZER, 0);
+  analogWrite(BUZZER, ton);
+  delay(50);
+  analogWrite(BUZZER, 0);
 }
+///////////////////////////////////////////////////////
 
+///////////////////////////////////////////////////////
+//    SETUP FUNCTION
+//////////////////////////////////////////////////////
 void setup() {
   //line tracker init
   pinMode(A1, INPUT);
@@ -126,46 +139,73 @@ void setup() {
   //buzzer init
   pinMode(BUZZER, OUTPUT);
   //beep(127);
-  Serial.begin(9600);
+  //Serial.begin(9600);
 }
+////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////
+//  Robot moving. Line follow mode
+///////////////////////////////////////////////////
+#define MIN_PWM 110
+#define MAX_PWM 192
+#define STEPS 7 // 0-6 from readLine
+
+void line_follow()
+{
+  static const int step = (MAX_PWM-MIN_PWM)/STEPS;
+  static int last_line;
+  int line = readLine();
+  if (line != last_line)
+  {
+    analogWrite(E1, MAX_PWM - (constrain(line, 0, STEPS-1)) * step;); //left motor
+    analogWrite(E2, MAX_PWM - (abs(constrain(line, 1-STEPS, 0))) * step); //right motor
+    last_line = line;
+  }
+}
+//////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////
+//  Line follow sensor reading (5 lines)
+//////////////////////////////////////////////////////
 int readLine()
 {
   static int lastResult;
   int result;  
-  //Reading from line-sensor
   byte newLine = (PINC & B00111110) >> 1;
   switch (newLine){
-    case B10000: {result = 5; break;}
-    case B11000: {result = 4; break;}
-    case B11110: {result = 3; break;}    
-    case B11100: {result = 2; break;}
-    case B01100: {result = 1; break;}
-    case B00100: {result = 0; break;}
-    case B00110: {result = -1; break;}
-    case B00111: {result = -2; break;}
-    case B01111: {result = -3; break;}
-    case B00011: {result = -4; break;}
-    case B00001: {result = -5; break;}
-    case B00000: {
-        if (lastResult > 0) {
-          result = 6; 
-        } else {
-          result = -6; 
-        }
-        break;
-      }
-    default: {result = lastResult; break;}
+    case B10000: result = 5; break;
+    case B11000: result = 4; break;
+    case B11110: result = 3; break;    
+    case B11100: result = 2; break;
+    case B01100: result = 1; break;
+    case B00100: result = 0; break;
+    case B00110: result = -1; break;
+    case B00111: result = -2; break;
+    case B01111: result = -3; break;
+    case B00011: result = -4; break;
+    case B00001: result = -5; break;
+    case B00000: if (lastResult > 0){ // out of line
+                    result = 6; 
+                  } else {
+                    result = -6; 
+                  }
+                  break;
+                  
+    default: {result = lastResult; break;} //skip undefined situation
   }
   lastResult = result; 
   return result; 
 }
+///////////////////////////////////////////////////////
 
+//////////////////////////////////////////////////////
+//  old line follow function. really work
+//////////////////////////////////////////////////////
 void mode_linetracking()
 {
-static byte lastLine;
-byte newLine = 0;
-  
+  static byte lastLine;
+  byte newLine = 0;
+
   //Reading from line-sensor
   newLine = (PINC & B00111110) >> 1;
   if (newLine == lastLine) return;
@@ -174,49 +214,52 @@ byte newLine = 0;
   {
     //////////////////
     case B10000: 
-      fwd(-2,2);
-      break;
+    fwd(-2,2);
+    break;
     case B11000:
-      fwd(-1,2);
-      break;
+    fwd(-1,2);
+    break;
     case B01000:
-      fwd(0,2);
-      break;
+    fwd(0,2);
+    break;
     case B01100:
-      fwd(1,2);
-      break;
+    fwd(1,2);
+    break;
     ////////////////////  
     case B00100:
-      fwd(2,2);
-      break;
+    fwd(2,2);
+    break;
     ////////////////////  
     case B00110:
-      fwd(2,1);
-      break;
+    fwd(2,1);
+    break;
     case B00010:  
-      fwd(2,0);
-      break;
+    fwd(2,0);
+    break;
     case B00011:
-      fwd(2,-2);
-      break;
+    fwd(2,-2);
+    break;
     case B00001:
       fwd(2,-3); //правый двигатель слабый
       break;     
     ////////////////////   
     case B00000:
-      fwd(0,0);
+    fwd(0,0);
       //beep(128);
       break;
-    default:
+      default:
       //fwd(0,0);
       //beep(20);
       break;
-  }
-  lastLine = newLine;
+    }
+    lastLine = newLine;
   //Serial.println(newLine, BIN);  
 }
+/////////////////////////////////////////////////////////////
 
 /////////////////////////////////////////////////////////////
+// IR-remote moving
+////////////////////////////////////////////////////////////
 void mode_irremote()
 {
   static unsigned long command_time;
@@ -229,17 +272,17 @@ void mode_irremote()
     switch (results.value)
     {
       case IR_LEFT :
-        fwd(-4,4);
-        break;
+      fwd(-4,4);
+      break;
       case IR_RIGHT :
-        fwd(4,-4);
-        break;
+      fwd(4,-4);
+      break;
       case IR_UP :
-        fwd(6,6);
-        break;
+      fwd(6,6);
+      break;
       case IR_DOWN :
-        fwd(-6,-6);
-        break;
+      fwd(-6,-6);
+      break;
     }
     irrecv.resume(); // Receive the next value
   }
@@ -249,6 +292,10 @@ void mode_irremote()
 byte lastLine = 0;
 byte newLine = 0;
 
+
+////////////////////////////////////////////////////////////
+// MAIN LOOP
+///////////////////////////////////////////////////////////
 enum Robot_Mode
 {
   IR_REMOTE,
@@ -260,30 +307,46 @@ enum Robot_Mode
 
 Robot_Mode mode = STAND_BY;
 decode_results results;
+int ir_code = 0;
+//int last_ir_code = 0;
 
 void loop() {
 
   if (irrecv.decode(&results)) {
-    Serial.println(results.value & B11111111, DEC);
+    ir_code = results.value & B11111111;
+    //Serial.println(ir_code);
+    switch (ir_code)
+    {
+      case IR_OK: 
+      {
+        mode = STAND_BY; break;
+      }
+      case IR_1: 
+      {
+        mode = LINE_TRACKING; break;
+      }
+      case IR_2: 
+      {
+        mode = IR_REMOTE; break;
+      }    
+    }
+    last_ir_code = ir_code;  
     irrecv.resume(); // Receive the next value
   }
 
-  switch (results.value & B11111111)
+  switch (mode)
   {
-    case IR_OK: 
-    {
-      mode = STAND_BY; break;
-    }
-    case IR_1: 
-    {
-      mode = LINE_TRACKING; break;
-    }
-    case IR_2: 
-    {
-      mode = IR_REMOTE; break;
-    }    
+    case STAND_BY:
+    stp();
+    break;
+    case IR_REMOTE:
+    break;
+    case LINE_TRACKING:
+    break;
+    default:
+    break;
   }
- 
+
   //Reading from line-sensor
   newLine = (PINC & B00111110) >> 1;
   if (newLine == lastLine) return;
@@ -292,44 +355,45 @@ void loop() {
   {
     //////////////////
     case B10000: 
-      fwd(-2,2);
-      break;
+    fwd(-2,2);
+    break;
     case B11000:
-      fwd(-1,2);
-      break;
+    fwd(-1,2);
+    break;
     case B01000:
-      fwd(0,2);
-      break;
+    fwd(0,2);
+    break;
     case B01100:
-      fwd(1,2);
-      break;
+    fwd(1,2);
+    break;
     ////////////////////  
     case B00100:
-      fwd(2,2);
-      break;
+    fwd(2,2);
+    break;
     ////////////////////  
     case B00110:
-      fwd(2,1);
-      break;
+    fwd(2,1);
+    break;
     case B00010:  
-      fwd(2,0);
-      break;
+    fwd(2,0);
+    break;
     case B00011:
-      fwd(2,-2);
-      break;
+    fwd(2,-2);
+    break;
     case B00001:
       fwd(2,-3); //правый двигатель слабый
       break;     
     ////////////////////   
     case B00000:
-      fwd(0,0);
+    fwd(0,0);
       //beep(128);
       break;
-    default:
+      default:
       //fwd(0,0);
       //beep(20);
       break;
-  }
-  lastLine = newLine;
+    }
+    lastLine = newLine;
   //Serial.println(newLine, BIN);
 }
+/////////////////////////////////////////////////////////
