@@ -53,13 +53,35 @@ void stp()
 /////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////
-// BEEP function TODO: not working
+// SOUND function
 //////////////////////////////////////////////////////
-void beep(int ton) //TODO not work
+void beep(unsigned long buzzPeriod) //TODO not work
 {
-  analogWrite(BUZZER, ton);
-  delay(50);
-  analogWrite(BUZZER, 0);
+  boolean buzzHigh = true;
+  unsigned long last = 0;
+  unsigned long previous = millis();
+  unsigned long now = previous;
+  while ((now - previous) <= 30) 
+  {
+    if ((now - last) >= buzzPeriod)
+    {
+      buzzHigh = !buzzHigh;
+      digitalWrite(BUZZER, buzzHigh);
+      last = millis();
+    }
+    now = millis();
+  }
+}
+
+void pukpuk()
+{
+  beep(2);
+  delay(30);
+  beep(4);
+  delay(30);
+  beep(3);
+  delay(30);
+  beep(1);
 }
 ///////////////////////////////////////////////////////
 
@@ -73,6 +95,8 @@ void setup() {
   pinMode(A3, INPUT);
   pinMode(A4, INPUT);
   pinMode(A5, INPUT);
+
+    
 
   //TSOP (IR) init
   irrecv.enableIRIn(); // Start the receiver
@@ -97,7 +121,7 @@ void setup() {
 
   //buzzer init
   pinMode(BUZZER, OUTPUT);
-  //beep(127);
+  pukpuk();
   //Serial.begin(9600);
 }
 ////////////////////////////////////////////////////
@@ -278,11 +302,22 @@ void loop() {
     //Serial.println(ir_code);
     switch (ir_code)
     {
-      case IR_OK: mode = STAND_BY;      break;
-      case IR_1:  mode = LINE_TRACKING; break;
-      case IR_2:  mode = IR_REMOTE;     break;   
+      case IR_OK: {
+        pukpuk();
+        mode = STAND_BY;      
+        break;
+      }
+      case IR_1: {
+        pukpuk();
+        mode = LINE_TRACKING; 
+        break;
+      }
+      case IR_2: {
+        pukpuk();
+        mode = IR_REMOTE;     
+        break;   
+      }
     }
-    last_ir_code = ir_code;  
     irrecv.resume(); // Receive the next value
   }
 
@@ -292,6 +327,10 @@ void loop() {
       stp();
       break;
     case IR_REMOTE:
+      if (ir_code != last_ir_code) {
+        beep(3);
+        last_ir_code = ir_code; 
+      }      
       mode_irremote(ir_code);
       break;
     case LINE_TRACKING:
